@@ -1,0 +1,40 @@
+[user]
+	email = 6740474+Kavignon@users.noreply.github.com
+	name = Kevin Avignon
+[core]
+	excludesfile = /Users/kevinavignon/.gitignore_global
+[difftool "sourcetree"]
+	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
+	path = 
+[mergetool "sourcetree"]
+	cmd = /Users/kevinavignon/Applications/Sourcetree-2.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
+	trustExitCode = true
+[commit]
+	template = /Users/kevinavignon/.stCommitMsg
+[alias]
+    view-clean = "!git checkout . && git reset --hard && git clean -nd"
+    full-clean = "!git checkout . && git reset --hard && git clean -fd"
+    commit-all-staged = "!git add . && git commit -m"
+    amend = "!git commit --amend -m"
+    drop-latest = "!sh -c 'git reset --hard HEAD~$1 && git push --force' -"
+	new-branch = "!sh -c 'git checkout main && git pull && git checkout -b \"$1\"' -"
+	rebase-root = "!git rebase -i --root"
+	backup-and-push = "!f() { \\\n  CURRENT_BRANCH=$(git symbolic-ref --short HEAD); \\\n  BACKUP_BRANCH=\"${CURRENT_BRANCH}-backup\"; \\\n  git branch \"$BACKUP_BRANCH\" && \\\n  git push origin \"$BACKUP_BRANCH\"; \\\n}; f"
+    aliases-help = "!echo '\
+    view-clean: Performs a dry run of git clean without deleting files and resets the working directory.\n\n\
+    full-clean: Performs a complete clean, removing untracked files and resetting the working directory.\n\n\
+    commit-all-staged <message>: Stages all changes and commits them with the provided message.\n\n\
+    amend <message>: Amends the previous commit with the provided message.\n\n\
+    drop-latest <number_of_commits>: Drops the last <number_of_commits> commits and force pushes the changes to the remote.\n\n\
+	backup-and-push: Creates a backup branch for the current branch and pushes it to the remote repository.\n\n\
+	rebase-root: Starts an interactive rebase from the parent on commit #1 on the given branch.\n\n\
+    new-branch <branch name>: Checkout main and pulls the latest changes. Once done, it'll create a new branch from there.'"
+	rename-branch = "!f() { git branch -m \"$1\"; }; f"
+
+[push]
+	autoSetupRemote = true
+	default = current
+[help]
+	autocorrect = 1
+[color]
+	ui = auto
