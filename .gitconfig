@@ -1,40 +1,256 @@
 [user]
 	email = 6740474+Kavignon@users.noreply.github.com
 	name = Kevin Avignon
+
 [core]
-	excludesfile = /Users/kevinavignon/.gitignore_global
-[difftool "sourcetree"]
-	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
-	path = 
-[mergetool "sourcetree"]
-	cmd = /Users/kevinavignon/Applications/Sourcetree-2.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
-	trustExitCode = true
-[commit]
-	template = /Users/kevinavignon/.stCommitMsg
-[alias]
-    view-clean = "!git checkout . && git reset --hard && git clean -nd"
-    full-clean = "!git checkout . && git reset --hard && git clean -fd"
-    commit-all-staged = "!git add . && git commit -m"
-    amend = "!git commit --amend -m"
-    drop-latest = "!sh -c 'git reset --hard HEAD~$1 && git push --force' -"
-	new-branch = "!sh -c 'git checkout main && git pull && git checkout -b \"$1\"' -"
-	rebase-root = "!git rebase -i --root"
-	backup-and-push = "!f() { \\\n  CURRENT_BRANCH=$(git symbolic-ref --short HEAD); \\\n  BACKUP_BRANCH=\"${CURRENT_BRANCH}-backup\"; \\\n  git branch \"$BACKUP_BRANCH\" && \\\n  git push origin \"$BACKUP_BRANCH\"; \\\n}; f"
-    aliases-help = "!echo '\
-    view-clean: Performs a dry run of git clean without deleting files and resets the working directory.\n\n\
-    full-clean: Performs a complete clean, removing untracked files and resetting the working directory.\n\n\
-    commit-all-staged <message>: Stages all changes and commits them with the provided message.\n\n\
-    amend <message>: Amends the previous commit with the provided message.\n\n\
-    drop-latest <number_of_commits>: Drops the last <number_of_commits> commits and force pushes the changes to the remote.\n\n\
-	backup-and-push: Creates a backup branch for the current branch and pushes it to the remote repository.\n\n\
-	rebase-root: Starts an interactive rebase from the parent on commit #1 on the given branch.\n\n\
-    new-branch <branch name>: Checkout main and pulls the latest changes. Once done, it'll create a new branch from there.'"
-	rename-branch = "!f() { git branch -m \"$1\"; }; f"
+	excludesfile = ~/.gitignore_global
+	editor = code --wait
+	autocrlf = input
+	filemode = false
+
+[init]
+	defaultBranch = main
 
 [push]
 	autoSetupRemote = true
 	default = current
+	followTags = true
+
+[pull]
+	rebase = true
+
+[rebase]
+	autoStash = true
+
+[merge]
+	conflictstyle = diff3
+	tool = vscode
+
+[mergetool "vscode"]
+	cmd = code --wait $MERGED
+
+[diff]
+	tool = vscode
+	colorMoved = default
+
+[difftool "vscode"]
+	cmd = code --wait --diff $LOCAL $REMOTE
+
+[difftool "sourcetree"]
+	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
+
 [help]
 	autocorrect = 1
+
 [color]
 	ui = auto
+
+[color "branch"]
+	current = yellow reverse
+	local = yellow
+	remote = green
+
+[color "diff"]
+	meta = yellow bold
+	frag = magenta bold
+	old = red bold
+	new = green bold
+
+[color "status"]
+	added = yellow
+	changed = green
+	untracked = cyan
+
+# Your custom aliases
+[alias]
+	# ----------------------------
+	# Documentation Management
+	# ----------------------------
+	docs = "!command -v glow >/dev/null 2>&1 || { echo 'glow is not installed. Please install glow to view this file.'; exit 1; } && glow $HOME/docs/alias-docs.md"
+	help-aliases = "!f() { \
+		echo 'Available Aliases:'; \
+		git config --get-regexp '^alias\\.' | sed 's/^alias\\.//g' | awk '{print $1}' | sort; \
+		}; f"
+
+	# ----------------------------
+	# Commit Management
+	# ----------------------------
+	c-amend = "!git commit --amend -m"
+	c-undo = "!git reset HEAD~1 && git checkout -n ."
+	c-drop-latest = "!sh -c 'git reset --hard HEAD~${1:-1} && git push --force' -"
+
+	# ----------------------------
+	# Branch Management
+	# ----------------------------
+	b-rebase-root = "!f() { \
+		# Ensure the current branch is not 'main' \
+		if [ \"$(git symbolic-ref --short HEAD)\" = \"main\" ]; then \
+			echo 'Error: You are on the main branch. Please switch to your feature branch.'; \
+			exit 1; \
+		fi; \
+		# Find the first commit of the current branch \
+		root_commit=$(git rev-list --boundary main..HEAD | grep '^-' | cut -c2-); \
+		# Check if the root commit was found \
+		if [ -z \"$root_commit\" ]; then \
+			echo 'Error: Unable to determine the root commit of the feature branch.'; \
+			exit 1; \
+		fi; \
+		# Start interactive rebase from the root commit \
+		git rebase -i \"$root_commit\"^; \
+	}; f"
+	
+	b-rename = "!f() { \
+		if [ -z \"$1\" ] || [ -z \"$2\" ]; then \
+			echo 'Usage: git b-rename <old-branch-name> <new-branch-name> [remote]'; \
+			exit 1; \
+		fi; \
+		old_branch=\"$1\"; \
+		new_branch=\"$2\"; \
+		remote=\"${3:-origin}\"; \
+		if ! git show-ref --verify --quiet refs/heads/$old_branch; then \
+			echo \"Error: Local branch '$old_branch' does not exist.\"; \
+			exit 1; \
+		fi; \
+		if git show-ref --verify --quiet refs/heads/$new_branch; then \
+			echo \"Error: Local branch '$new_branch' already exists.\"; \
+			exit 1; \
+		fi; \
+		if git ls-remote --exit-code --heads $remote \"$new_branch\" > /dev/null 2>&1; then \
+			echo \"Error: Remote branch '$new_branch' already exists.\"; \
+			exit 1; \
+		fi; \
+		current_branch=$(git symbolic-ref --short HEAD); \
+		if [ \"$current_branch\" = \"$old_branch\" ]; then \
+			git branch -m \"$new_branch\"; \
+			git push $remote \"$new_branch\"; \
+			git push $remote --set-upstream \"$new_branch\"; \
+		else \
+			git branch -m \"$old_branch\" \"$new_branch\"; \
+			git push $remote \"$new_branch\"; \
+		fi; \
+		if git ls-remote --exit-code --heads $remote \"$old_branch\" > /dev/null 2>&1; then \
+			git push $remote --delete \"$old_branch\"; \
+		else \
+			echo \"Note: Remote branch '$old_branch' not found. Skipping delete.\"; \
+		fi; \
+	}; f"
+	
+	b-new = "!f() { \
+		newBranch=\"$1\"; \
+		baseBranch=\"${2:-$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)}\"; \
+		commitId=\"$3\"; \
+		if [ -z \"$commitId\" ]; then \
+			git checkout \"$baseBranch\" && git pull && git checkout -b \"$newBranch\"; \
+		else \
+			git checkout \"$baseBranch\" && git checkout -b \"$newBranch\" \"$commitId\"; \
+		fi; \
+	}; f"
+	
+	b-from-picks = "!f() { \
+		newBranch=\"$1\"; \
+		baseBranch=\"${2:-$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)}\"; \
+		cherryPickCommits=\"$3\"; \
+		git checkout $baseBranch && git pull --rebase; \
+		git checkout -b \"$newBranch\" $(git rev-parse $baseBranch); \
+		if [ -n \"$cherryPickCommits\" ]; then \
+			if [[ \"$cherryPickCommits\" == *'..'* ]]; then \
+				git cherry-pick $cherryPickCommits || { echo 'Cherry-pick range failed. Resolve conflicts and commit manually.'; exit 1; }; \
+			else \
+				for commit in $cherryPickCommits; do \
+					git cherry-pick $commit || { echo 'Cherry-pick failed. Resolve conflicts and commit manually.'; exit 1; }; \
+				done; \
+			fi; \
+		fi; \
+	}; f"
+
+	# ----------------------------
+	# Syncing and Merging
+	# ----------------------------
+	sync-base = "!f() { \
+		branch=\"${1:-$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)}\"; \
+		current_branch=$(git symbolic-ref --short HEAD); \
+		git checkout $branch && git fetch origin && git pull origin $branch && \
+		git checkout $current_branch && git rebase origin/$branch && \
+		if [ $? -eq 0 ]; then \
+			git push --force-with-lease; \
+		else \
+			echo 'Rebase conflicts occurred. Resolve them and then run rebase --continue.'; \
+		fi; \
+	}; f"
+
+	# ----------------------------
+	# Cleanup
+	# ----------------------------
+	clean-view = "!git clean -nd"
+	clean-force = "!git checkout . && git reset --hard && git clean -fd"
+
+	# ----------------------------
+	# Status and Logging
+	# ----------------------------
+	st = "!git status -sb"
+	lg = "!git log --graph --oneline --decorate --all"
+
+	# ----------------------------
+	# Backup and Recovery
+	# ----------------------------
+	backup-branch = "!f() { \
+		CURRENT_BRANCH=$(git symbolic-ref --short HEAD); \
+		BACKUP_BRANCH=\"${CURRENT_BRANCH}-backup-$(date +%Y%m%d%H%M%S)\"; \
+		git branch \"$BACKUP_BRANCH\" && git push origin \"$BACKUP_BRANCH\"; \
+	}; f"
+	
+	# ----------------------------
+	# Additional Useful Aliases
+	# ----------------------------
+	# Basic shortcuts (keeping some classics)
+	co = checkout
+	br = branch
+	ci = commit
+	unstage = reset HEAD --
+	last = log -1 HEAD
+	
+	# Enhanced shortcuts
+	s = status --short --branch
+	d = diff
+	dc = diff --cached
+	
+	# Commit variations
+	cm = commit -m
+	ca = commit -a
+	cam = commit -am
+	amend = commit --amend --no-edit
+	amendm = commit --amend
+	wip = commit -am "WIP"
+	
+	# Branch operations
+	branches = branch -a
+	remotes = remote -v
+	main = checkout main
+	master = checkout master
+	develop = checkout develop
+	
+	# Stash operations
+	sl = stash list
+	sa = stash apply
+	ss = stash save
+	
+	# Find and search
+	find = !sh -c 'git ls-tree -r --name-only HEAD | grep --color $1' -
+	grep = grep -Ii
+	conflicts = diff --name-only --diff-filter=U
+	
+	# Remote operations
+	p = push
+	pl = pull
+	pom = push origin main
+	plom = pull origin main
+	
+	# Show what changed
+	what = whatchanged --oneline
+	who = shortlog -s --
+
+[url "https://github.com/"]
+	insteadOf = gh:
+
+[url "https://gist.github.com/"]
+	insteadOf = gist:
