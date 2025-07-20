@@ -93,23 +93,56 @@ main() {
     # Install Zsh configurations
     install_config ".p10k.zsh" "$HOME/.p10k.zsh"
     
-    # Install .zshrc if it exists
-    if curl -fsSL "$BASE_URL/.zshrc" -o "$HOME/.zshrc" 2>/dev/null; then
-        print_status "Successfully installed .zshrc"
+    # For containers, create a minimal .zshrc that just works
+    if [ "$IS_CONTAINER" = true ]; then
+        print_status "Creating container-friendly .zshrc..."
+        cat > "$HOME/.zshrc" << 'EOL'
+# Simple container .zshrc - no external dependencies
+# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# Basic zsh configuration
+autoload -U compinit && compinit
+setopt HIST_IGNORE_DUPS
+setopt HIST_FIND_NO_DUPS
+setopt SHARE_HISTORY
+HISTSIZE=10000
+SAVEHIST=10000
+
+# Simple prompt with git info if p10k isn't available
+autoload -Uz vcs_info
+precmd() { vcs_info }
+zstyle ':vcs_info:git:*' formats '(%b) '
+setopt PROMPT_SUBST
+PROMPT='%F{cyan}%n@%m%f:%F{blue}%~%f %F{red}${vcs_info_msg_0_}%f$ '
+
+# Load p10k config if available
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+# Useful aliases
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias g='git'
+alias m='mix'
+alias c='clear'
+EOL
     else
-        print_warning ".zshrc not found in repo, skipping..."
+        # For local machines, try to download the full .zshrc
+        if curl -fsSL "$BASE_URL/.zshrc" -o "$HOME/.zshrc" 2>/dev/null; then
+            print_status "Successfully installed .zshrc"
+        else
+            print_warning ".zshrc not found in repo, skipping..."
+        fi
     fi
     
     # Container-specific setup
     if [ "$IS_CONTAINER" = true ]; then
         print_header "Configuring for container environment..."
-        
-        # Source the p10k config if zsh is available
-        if command -v zsh >/dev/null 2>&1; then
-            if [ -f "$HOME/.zshrc" ]; then
-                echo 'source ~/.p10k.zsh' >> "$HOME/.zshrc"
-            fi
-        fi
         
         # Set git config for container (use container-friendly settings)
         git config --global core.filemode false
